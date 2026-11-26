@@ -250,9 +250,9 @@ class FlipClock(Gtk.Window):
         self.family = font_family()
 
         initial = datetime.now()
-        self.display_digits = [f"{initial.hour:02d}", f"{initial.minute:02d}", f"{initial.second:02d}"]
+        self.display_digits = [f"{initial.hour:02d}", f"{initial.minute:02d}"]
         self.previous_digits = list(self.display_digits)
-        self.flip_start = [-1.0, -1.0, -1.0]
+        self.flip_start = [-1.0, -1.0]
         self.flip_duration = 0.30
 
         self.set_title("Flip Clock Screensaver")
@@ -309,11 +309,12 @@ class FlipClock(Gtk.Window):
             cr.restore()
 
         now = datetime.now()
-        targets = (f"{now.hour:02d}", f"{now.minute:02d}", f"{now.second:02d}")
+        targets = (f"{now.hour:02d}", f"{now.minute:02d}")
         tile_w = max(40, int(w * self.tile_width_ratio))
         tile_h = max(30, int(h * self.tile_height_ratio))
         gap = tile_w * 0.15
-        total = 3 * tile_w + 2 * gap
+        colon_w = tile_w * 0.32
+        total = 2 * tile_w + colon_w + 2 * gap
         start_x = (w - total) / 2
         start_y = (h - tile_h) / 2
         font_size = int(tile_h * 0.40)
@@ -334,7 +335,7 @@ class FlipClock(Gtk.Window):
 
             self.draw_tile(
                 cr,
-                start_x + index * (tile_w + gap),
+                start_x + index * (tile_w + colon_w + 2 * gap),
                 start_y,
                 tile_w,
                 tile_h,
@@ -343,6 +344,8 @@ class FlipClock(Gtk.Window):
                 progress,
                 font_size,
             )
+
+        self.draw_digits(cr, start_x + tile_w + gap, start_y, colon_w, tile_h, ":", font_size)
 
     def draw_digits(self, cr: cairo.Context, x: float, y: float, w: float, h: float, digits: str, font_size: int) -> None:
         layout = PangoCairo.create_layout(cr)

@@ -1,7 +1,7 @@
 # FlipClock Screensaver — Arch Linux / Hyprland
 
-A fullscreen flip-clock: three rounded Cairo tiles (HH / MM / SS) over a
-Gaussian-blurred wallpaper. Digits change with a split-flap animation — the
+A fullscreen flip-clock: two rounded Cairo tiles (HH / MM) separated by a
+colon, over a Gaussian-blurred wallpaper. Digits change with a split-flap animation — the
 old top flap folds down and the new digit appears underneath. `Ctrl + \`
 opens it; `SPACE` closes it and starts the lock screen using the exact same
 blurred image.
@@ -78,8 +78,8 @@ Ctrl + \
 ```
 
 The Settings window includes a **live mini clock preview** under Appearance.
-It ticks once per second and redraws immediately when you change the wallpaper,
-blur, colours, corner radius, tile width or tile height.
+It follows the current time and redraws immediately when you change the
+wallpaper, blur, colours, corner radius, tile width or tile height.
 
 The **Preview** button applies the current on-screen selections immediately,
 even if you have not pressed **Save & Apply** yet. **Save & Apply** writes
@@ -127,9 +127,9 @@ setup app to write the file and restart the daemon immediately.
 | `trigger` | Documentation of the sxhkd trigger | `ctrl+backslash` |
 
 Tile width and height are adjustable in **Settings → Appearance → Tile Width /
-Tile Height**. Gap = 15% of tile width, font size = 40% of tile height, and the
-seam stays at the exact vertical centre. Preview and **Save & Apply** both use
-the current slider values.
+Tile Height**. Gap = 15% of tile width, the colon occupies 32% of a tile's
+width, font size = 40% of tile height, and the seam stays at the exact vertical
+centre. Preview and **Save & Apply** both use the current slider values.
 
 ## Hyprland keybind
 

@@ -461,13 +461,14 @@ class SetupApp(Adw.Application):
             cr.restore()
 
         now = datetime.now()
-        digits = (f"{now.hour:02d}", f"{now.minute:02d}", f"{now.second:02d}")
+        digits = (f"{now.hour:02d}", f"{now.minute:02d}")
         width_ratio = min(30.0, max(10.0, float(self.cfg.get("tile_width", 22) or 22))) / 100.0
         height_ratio = min(60.0, max(10.0, float(self.cfg.get("tile_height", 29) or 29))) / 100.0
         tile_w = max(18, int(w * width_ratio))
         tile_h = max(14, int(h * height_ratio))
         gap = tile_w * 0.15
-        total = 3 * tile_w + 2 * gap
+        colon_w = tile_w * 0.32
+        total = 2 * tile_w + colon_w + 2 * gap
         start_x = (w - total) / 2
         start_y = (h - tile_h) / 2
         radius = max(0.0, min(float(self.cfg.get("tile_radius", 18) or 0), tile_w / 2, tile_h / 2))
@@ -476,21 +477,24 @@ class SetupApp(Adw.Application):
         digit_color = rgb_from_hex(self.cfg["clock_color"], (1.0, 1.0, 1.0))
         family = preview_font_family()
 
-        for index, text in enumerate(digits):
-            x = start_x + index * (tile_w + gap)
-            y = start_y
-            rounded_path(cr, x, y, tile_w, tile_h, radius)
-            cr.set_source_rgb(*tile_color)
-            cr.fill()
-
+        def draw_text(text: str, x: float, width: float) -> None:
             layout = PangoCairo.create_layout(cr)
             layout.set_font_description(Pango.FontDescription.from_string(f"{family} Bold {font_size}"))
             layout.set_text(text, -1)
             layout.set_alignment(Pango.Alignment.CENTER)
             text_w, text_h = layout.get_pixel_size()
             cr.set_source_rgb(*digit_color)
-            cr.move_to(x + (tile_w - text_w) / 2, y + (tile_h - text_h) / 2)
+            cr.move_to(x + (width - text_w) / 2, start_y + (tile_h - text_h) / 2)
             PangoCairo.show_layout(cr, layout)
+
+        for index, text in enumerate(digits):
+            x = start_x + index * (tile_w + colon_w + 2 * gap)
+            y = start_y
+            rounded_path(cr, x, y, tile_w, tile_h, radius)
+            cr.set_source_rgb(*tile_color)
+            cr.fill()
+
+            draw_text(text, x, tile_w)
 
             cr.save()
             rounded_path(cr, x, y, tile_w, tile_h, radius)
@@ -501,6 +505,8 @@ class SetupApp(Adw.Application):
             cr.line_to(x + tile_w, y + tile_h / 2)
             cr.stroke()
             cr.restore()
+
+        draw_text(":", start_x + tile_w + gap, colon_w)
 
     # -- callbacks ---------------------------------------------------------
 
