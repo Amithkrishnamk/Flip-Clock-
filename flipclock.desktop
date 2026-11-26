@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Flip Clock
+GenericName=Screensaver
+Comment=Fullscreen flip-clock screensaver; press SPACE to lock the screen
+Exec=/usr/bin/python3 @HOME@/.config/flipclock-screensaver/screensaver.py
+TryExec=/usr/bin/python3
+Icon=flipclock
+Terminal=false
+Categories=Utility;
+Keywords=clock;flip;lock;time;
+StartupNotify=true
+StartupWMClass=flipclock
+Actions=setup;
+
+[Desktop Action setup]
+Name=Open Settings
+Exec=/usr/bin/python3 @HOME@/.config/flipclock-screensaver/setup-app.py

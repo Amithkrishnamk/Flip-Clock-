@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Flip Clock Settings
+GenericName=Screensaver Settings
+Comment=Configure the wallpaper, blur, colours and lock screen
+Exec=/usr/bin/python3 @HOME@/.config/flipclock-screensaver/setup-app.py
+TryExec=/usr/bin/python3
+Icon=flipclock
+Terminal=false
+Categories=Settings;
+Keywords=clock;screensaver;flip;settings;wallpaper;
+StartupNotify=true
+StartupWMClass=com.flipclock.setup

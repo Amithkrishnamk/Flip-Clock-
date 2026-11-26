@@ -1,0 +1,13 @@
+[Unit]
+Description=FlipClock Screensaver Hotkey Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/flipclock-screensaver/screensaver-daemon.sh
+Restart=on-failure
+RestartSec=3
+Environment=PATH=/usr/bin:/usr/local/bin
+
+[Install]
+WantedBy=graphical-session.target
