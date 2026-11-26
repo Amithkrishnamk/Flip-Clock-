@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import configparser
+import math
 import os
 import shutil
 import subprocess
 import sys
 import threading
+from datetime import datetime
 from pathlib import Path
 
 import gi
@@ -16,8 +18,11 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
 
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
+import cairo  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 from PIL import Image, ImageFilter, ImageOps  # noqa: E402
 
@@ -115,6 +120,36 @@ def rgba_to_hex(rgba: Gdk.RGBA) -> str:
     )
 
 
+def rgb_from_hex(value: str, fallback: tuple[float, float, float]) -> tuple[float, float, float]:
+    rgba = Gdk.RGBA()
+    if rgba.parse(value.strip()):
+        return rgba.red, rgba.green, rgba.blue
+    return fallback
+
+
+def rounded_path(cr: cairo.Context, x: float, y: float, w: float, h: float, radius: float) -> None:
+    r = max(0.0, min(radius, w / 2, h / 2))
+    cr.new_path()
+    cr.move_to(x + r, y)
+    cr.arc(x + w - r, y + r, r, -math.pi / 2, 0)
+    cr.arc(x + w - r, y + h - r, r, 0, math.pi / 2)
+    cr.arc(x + r, y + h - r, r, math.pi / 2, math.pi)
+    cr.arc(x + r, y + r, r, math.pi, 3 * math.pi / 2)
+    cr.close_path()
+
+
+def preview_font_family() -> str:
+    try:
+        families = {f.get_name().lower() for f in Pango.FontMap.get_default().list_families()}
+        if "bebas neue" in families:
+            return "Bebas Neue"
+        if "archivo black" in families:
+            return "Archivo Black"
+    except Exception:
+        ...
+    return "Sans"
+
+
 def dependency_report() -> list[tuple[str, bool, str]]:
     report: list[tuple[str, bool, str]] = []
     python = shutil.which("python3")
@@ -194,6 +229,7 @@ class SetupApp(Adw.Application):
         window.present()
         self.load_thumbnail()
         self.start_blur_worker()
+        GLib.timeout_add(1000, self.tick_clock_preview)
 
     # -- group builders ----------------------------------------------------
 
@@ -244,6 +280,18 @@ class SetupApp(Adw.Application):
         blur_frame.set_margin_top(6)
         blur_frame.set_margin_bottom(12)
         group.add(blur_frame)
+
+        # Live miniature of the clock: updates with every setting and ticks.
+        self.clock_preview = Gtk.DrawingArea()
+        self.clock_preview.set_size_request(300, 180)
+        self.clock_preview.set_hexpand(True)
+        self.clock_preview.set_draw_func(self.draw_clock_preview)
+        clock_frame = Gtk.Frame()
+        clock_frame.set_child(self.clock_preview)
+        clock_frame.set_halign(Gtk.Align.CENTER)
+        clock_frame.set_margin_top(6)
+        clock_frame.set_margin_bottom(12)
+        group.add(clock_frame)
 
         clock_row = Adw.ActionRow(title="Clock Color", subtitle="Digits")
         clock_button = Gtk.ColorButton.new_with_rgba(rgba_from_hex(self.cfg["clock_color"]))
@@ -386,7 +434,73 @@ class SetupApp(Adw.Application):
             return False
         texture = Gdk.Texture.new_from_filename(str(PREVIEW_TMP))
         self.blur_picture.set_paintable(texture)
+        self.clock_preview.queue_draw()
         return False
+
+    def tick_clock_preview(self) -> bool:
+        self.clock_preview.queue_draw()
+        return True
+
+    def draw_clock_preview(self, _area: Gtk.DrawingArea, cr: cairo.Context, w: int, h: int) -> None:
+        """Miniature of the fullscreen clock using the current UI settings."""
+        cr.set_source_rgb(0.05, 0.05, 0.06)
+        cr.paint()
+
+        try:
+            background = cairo.ImageSurface.create_from_png(str(PREVIEW_TMP))
+        except Exception:
+            background = None
+        if background is not None:
+            sw, sh = background.get_width(), background.get_height()
+            scale = max(w / sw, h / sh)
+            cr.save()
+            cr.translate((w - sw * scale) / 2, (h - sh * scale) / 2)
+            cr.scale(scale, scale)
+            cr.set_source_surface(background, 0, 0)
+            cr.paint()
+            cr.restore()
+
+        now = datetime.now()
+        digits = (f"{now.hour:02d}", f"{now.minute:02d}", f"{now.second:02d}")
+        width_ratio = min(30.0, max(10.0, float(self.cfg.get("tile_width", 22) or 22))) / 100.0
+        height_ratio = min(60.0, max(10.0, float(self.cfg.get("tile_height", 29) or 29))) / 100.0
+        tile_w = max(18, int(w * width_ratio))
+        tile_h = max(14, int(h * height_ratio))
+        gap = tile_w * 0.15
+        total = 3 * tile_w + 2 * gap
+        start_x = (w - total) / 2
+        start_y = (h - tile_h) / 2
+        radius = max(0.0, min(float(self.cfg.get("tile_radius", 18) or 0), tile_w / 2, tile_h / 2))
+        font_size = max(8, int(tile_h * 0.40))
+        tile_color = rgb_from_hex(self.cfg["tile_color"], (0.102, 0.102, 0.102))
+        digit_color = rgb_from_hex(self.cfg["clock_color"], (1.0, 1.0, 1.0))
+        family = preview_font_family()
+
+        for index, text in enumerate(digits):
+            x = start_x + index * (tile_w + gap)
+            y = start_y
+            rounded_path(cr, x, y, tile_w, tile_h, radius)
+            cr.set_source_rgb(*tile_color)
+            cr.fill()
+
+            layout = PangoCairo.create_layout(cr)
+            layout.set_font_description(Pango.FontDescription.from_string(f"{family} Bold {font_size}"))
+            layout.set_text(text, -1)
+            layout.set_alignment(Pango.Alignment.CENTER)
+            text_w, text_h = layout.get_pixel_size()
+            cr.set_source_rgb(*digit_color)
+            cr.move_to(x + (tile_w - text_w) / 2, y + (tile_h - text_h) / 2)
+            PangoCairo.show_layout(cr, layout)
+
+            cr.save()
+            rounded_path(cr, x, y, tile_w, tile_h, radius)
+            cr.clip()
+            cr.set_source_rgba(1, 1, 1, 0.15)
+            cr.set_line_width(2.0)
+            cr.move_to(x, y + tile_h / 2)
+            cr.line_to(x + tile_w, y + tile_h / 2)
+            cr.stroke()
+            cr.restore()
 
     # -- callbacks ---------------------------------------------------------
 
@@ -414,6 +528,7 @@ class SetupApp(Adw.Application):
                 self.wallpaper_row.set_subtitle(path)
                 self.thumbnail.set_filename(path)
                 self.start_blur_worker()
+                self.clock_preview.queue_draw()
         dialog.destroy()
 
     def on_blur_changed(self, scale: Gtk.Scale) -> None:
@@ -424,20 +539,25 @@ class SetupApp(Adw.Application):
     def on_radius_changed(self, scale: Gtk.Scale) -> None:
         self.cfg["tile_radius"] = str(int(scale.get_value()))
         self.radius_value.set_label(self.cfg["tile_radius"])
+        self.clock_preview.queue_draw()
 
     def on_width_changed(self, scale: Gtk.Scale) -> None:
         self.cfg["tile_width"] = str(int(scale.get_value()))
         self.width_value.set_label(self.cfg["tile_width"])
+        self.clock_preview.queue_draw()
 
     def on_height_changed(self, scale: Gtk.Scale) -> None:
         self.cfg["tile_height"] = str(int(scale.get_value()))
         self.height_value.set_label(self.cfg["tile_height"])
+        self.clock_preview.queue_draw()
 
     def on_clock_color(self, button: Gtk.ColorButton) -> None:
         self.cfg["clock_color"] = rgba_to_hex(button.get_rgba())
+        self.clock_preview.queue_draw()
 
     def on_tile_color(self, button: Gtk.ColorButton) -> None:
         self.cfg["tile_color"] = rgba_to_hex(button.get_rgba())
+        self.clock_preview.queue_draw()
 
     def on_lock_changed(self, row: Adw.ComboRow, _pspec: object) -> None:
         self.cfg["lock_command"] = "swaylock" if row.get_selected() == 0 else "i3lock"

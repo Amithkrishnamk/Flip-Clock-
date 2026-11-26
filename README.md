@@ -77,6 +77,10 @@ python3 ~/.config/flipclock-screensaver/screensaver.py
 Ctrl + \
 ```
 
+The Settings window includes a **live mini clock preview** under Appearance.
+It ticks once per second and redraws immediately when you change the wallpaper,
+blur, colours, corner radius, tile width or tile height.
+
 The **Preview** button applies the current on-screen selections immediately,
 even if you have not pressed **Save & Apply** yet. **Save & Apply** writes
 `config.ini`, closes any running clock, and restarts the daemon so the next
