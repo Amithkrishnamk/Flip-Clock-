@@ -1,8 +1,10 @@
 # FlipClock Screensaver — Arch Linux / Hyprland
 
 A fullscreen flip-clock: three rounded Cairo tiles (HH / MM / SS) over a
-Gaussian-blurred wallpaper. `Ctrl + \` opens it; `SPACE` closes it and starts
-the lock screen using the exact same blurred image.
+Gaussian-blurred wallpaper. Digits change with a split-flap animation — the
+old top flap folds down and the new digit appears underneath. `Ctrl + \`
+opens it; `SPACE` closes it and starts the lock screen using the exact same
+blurred image.
 
 ## Requirements
 

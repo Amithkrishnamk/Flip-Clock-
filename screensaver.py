@@ -12,6 +12,7 @@ import math
 import os
 import shutil
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -244,6 +245,12 @@ class FlipClock(Gtk.Window):
         self.radius = max(0.0, float(cfg.get("tile_radius", 18) or 0))
         self.family = font_family()
 
+        initial = datetime.now()
+        self.display_digits = [f"{initial.hour:02d}", f"{initial.minute:02d}", f"{initial.second:02d}"]
+        self.previous_digits = list(self.display_digits)
+        self.flip_start = [-1.0, -1.0, -1.0]
+        self.flip_duration = 0.30
+
         self.set_title("Flip Clock Screensaver")
         self.set_decorated(False)
         self.set_can_focus(True)
@@ -271,9 +278,16 @@ class FlipClock(Gtk.Window):
         self.present()
         GLib.idle_add(self.grab_focus)
         GLib.timeout_add(1000, self.tick)
+        GLib.timeout_add(16, self.animation_tick)
 
     def tick(self) -> bool:
         self.area.queue_draw()
+        return True
+
+    def animation_tick(self) -> bool:
+        """Redraw at ~60fps only while a tile is mid-flip."""
+        if any(start >= 0 for start in self.flip_start):
+            self.area.queue_draw()
         return True
 
     def draw(self, _area: Gtk.DrawingArea, cr: cairo.Context, w: int, h: int) -> None:
@@ -291,6 +305,7 @@ class FlipClock(Gtk.Window):
             cr.restore()
 
         now = datetime.now()
+        targets = (f"{now.hour:02d}", f"{now.minute:02d}", f"{now.second:02d}")
         tile_w = int(w * 0.22)
         tile_h = int(tile_w * 0.75)
         gap = tile_w * 0.15
@@ -298,24 +313,34 @@ class FlipClock(Gtk.Window):
         start_x = (w - total) / 2
         start_y = (h - tile_h) / 2
         font_size = int(tile_h * 0.40)
+        moment = time.monotonic()
 
-        for index, digits in enumerate((f"{now.hour:02d}", f"{now.minute:02d}", f"{now.second:02d}")):
-            self.draw_tile(cr, start_x + index * (tile_w + gap), start_y, tile_w, tile_h, digits, font_size)
+        for index, target in enumerate(targets):
+            if target != self.display_digits[index]:
+                self.previous_digits[index] = self.display_digits[index]
+                self.display_digits[index] = target
+                self.flip_start[index] = moment
 
-    def draw_tile(
-        self,
-        cr: cairo.Context,
-        x: float,
-        y: float,
-        w: float,
-        h: float,
-        digits: str,
-        font_size: int,
-    ) -> None:
-        rounded_path(cr, x, y, w, h, self.radius)
-        cr.set_source_rgb(*self.tile_color)
-        cr.fill()
+            start = self.flip_start[index]
+            progress = (moment - start) / self.flip_duration if start >= 0 else 1.0
+            progress = min(1.0, max(0.0, progress))
+            if progress >= 1.0:
+                self.flip_start[index] = -1.0
+                self.previous_digits[index] = self.display_digits[index]
 
+            self.draw_tile(
+                cr,
+                start_x + index * (tile_w + gap),
+                start_y,
+                tile_w,
+                tile_h,
+                self.display_digits[index],
+                self.previous_digits[index],
+                progress,
+                font_size,
+            )
+
+    def draw_digits(self, cr: cairo.Context, x: float, y: float, w: float, h: float, digits: str, font_size: int) -> None:
         layout = PangoCairo.create_layout(cr)
         layout.set_font_description(Pango.FontDescription.from_string(f"{self.family} Bold {font_size}"))
         layout.set_text(digits, -1)
@@ -325,14 +350,77 @@ class FlipClock(Gtk.Window):
         cr.move_to(x + (w - text_w) / 2, y + (h - text_h) / 2)
         PangoCairo.show_layout(cr, layout)
 
+    def draw_tile(
+        self,
+        cr: cairo.Context,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        digits: str,
+        previous: str,
+        progress: float,
+        font_size: int,
+    ) -> None:
+        middle = y + h / 2
+        animating = progress < 1.0
+
+        rounded_path(cr, x, y, w, h, self.radius)
+        cr.set_source_rgb(*self.tile_color)
+        cr.fill()
+
+        cr.save()
+        rounded_path(cr, x, y, w, h, self.radius)
+        cr.clip()
+
+        # The top half already shows the incoming digit while the old flap
+        # folds away; the bottom half keeps the outgoing digit until it lands.
+        cr.save()
+        cr.rectangle(x, y, w, h / 2)
+        cr.clip()
+        self.draw_digits(cr, x, y, w, h, digits, font_size)
+        cr.restore()
+
+        cr.save()
+        cr.rectangle(x, middle, w, h / 2)
+        cr.clip()
+        self.draw_digits(cr, x, y, w, h, previous if animating else digits, font_size)
+        cr.restore()
+
+        if animating:
+            first_half = progress < 0.5
+            scale = 1.0 - 2.0 * progress if first_half else 2.0 * progress - 1.0
+            scale = max(0.0, min(1.0, scale))
+
+            cr.save()
+            if first_half:
+                cr.rectangle(x, y, w, h / 2)
+            else:
+                cr.rectangle(x, middle, w, h / 2)
+            cr.clip()
+
+            # Squash the flap towards the seam to emulate a hinge in 2D.
+            cr.translate(0, middle)
+            cr.scale(1.0, scale)
+            cr.translate(0, -middle)
+
+            cr.rectangle(x, y if first_half else middle, w, h / 2)
+            flap_color = tuple(min(1.0, channel + 0.07) for channel in self.tile_color)
+            cr.set_source_rgb(*flap_color)
+            cr.fill()
+            self.draw_digits(cr, x, y, w, h, previous if first_half else digits, font_size)
+            cr.restore()
+
+        cr.restore()
+
         # Exact vertical-centre split-flap seam, 2px, soft white highlight.
         cr.save()
         rounded_path(cr, x, y, w, h, self.radius)
         cr.clip()
         cr.set_source_rgba(1, 1, 1, 0.15)
         cr.set_line_width(2.0)
-        cr.move_to(x, y + h / 2)
-        cr.line_to(x + w, y + h / 2)
+        cr.move_to(x, middle)
+        cr.line_to(x + w, middle)
         cr.stroke()
         cr.restore()
 
