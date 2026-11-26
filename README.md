@@ -98,6 +98,8 @@ blur_sigma = 20
 clock_color = #ffffff
 tile_color = #1a1a1a
 tile_radius = 18
+tile_width = 22
+tile_height = 29
 lock_command = swaylock
 
 [hotkey]
@@ -115,12 +117,15 @@ setup app to write the file and restart the daemon immediately.
 | `clock_color` | Digit colour, `#rrggbb` | `#ffffff` |
 | `tile_color` | Tile colour, `#rrggbb` | `#1a1a1a` |
 | `tile_radius` | Rounded corner radius, 0–40 | `18` |
+| `tile_width` | Tile width as percent of screen width, 10–30 | `22` |
+| `tile_height` | Tile height as percent of screen height, 10–60 | `29` |
 | `lock_command` | `swaylock` or `i3lock` | `swaylock` |
 | `trigger` | Documentation of the sxhkd trigger | `ctrl+backslash` |
 
-Tile geometry is fixed by design: width = 22% of screen width, height = 75%
-of tile width, gap = 15% of tile width, font size = 40% of tile height, seam
-at the exact vertical centre.
+Tile width and height are adjustable in **Settings → Appearance → Tile Width /
+Tile Height**. Gap = 15% of tile width, font size = 40% of tile height, and the
+seam stays at the exact vertical centre. Preview and **Save & Apply** both use
+the current slider values.
 
 ## Hyprland keybind
 

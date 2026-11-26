@@ -33,6 +33,8 @@ DEFAULTS = {
     "clock_color": "#ffffff",
     "tile_color": "#1a1a1a",
     "tile_radius": "18",
+    "tile_width": "22",
+    "tile_height": "29",
     "lock_command": "swaylock",
 }
 
@@ -68,6 +70,8 @@ def config_text(cfg: dict[str, str]) -> str:
             line("clock_color", cfg["clock_color"], "digit colour"),
             line("tile_color", cfg["tile_color"], "tile colour"),
             line("tile_radius", cfg["tile_radius"], "corner radius 0-40"),
+            line("tile_width", cfg["tile_width"], "tile width, percent of screen width"),
+            line("tile_height", cfg["tile_height"], "tile height, percent of screen height"),
             line("lock_command", cfg["lock_command"], "swaylock or i3lock"),
             "",
             "[hotkey]",
@@ -268,6 +272,34 @@ class SetupApp(Adw.Application):
         radius_row.add_suffix(self.radius_value)
         radius.connect("value-changed", self.on_radius_changed)
         group.add(radius_row)
+
+        width_row = Adw.ActionRow(title="Tile Width", subtitle="Percent of screen width (10-30)")
+        width = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 30, 1)
+        width.set_value(float(self.cfg.get("tile_width", 22) or 22))
+        width.set_draw_value(False)
+        width.set_hexpand(True)
+        width.set_size_request(220, -1)
+        width.set_valign(Gtk.Align.CENTER)
+        self.width_value = Gtk.Label(label=str(int(width.get_value())))
+        self.width_value.set_width_chars(3)
+        width_row.add_suffix(width)
+        width_row.add_suffix(self.width_value)
+        width.connect("value-changed", self.on_width_changed)
+        group.add(width_row)
+
+        height_row = Adw.ActionRow(title="Tile Height", subtitle="Percent of screen height (10-60)")
+        height = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 60, 1)
+        height.set_value(float(self.cfg.get("tile_height", 29) or 29))
+        height.set_draw_value(False)
+        height.set_hexpand(True)
+        height.set_size_request(220, -1)
+        height.set_valign(Gtk.Align.CENTER)
+        self.height_value = Gtk.Label(label=str(int(height.get_value())))
+        self.height_value.set_width_chars(3)
+        height_row.add_suffix(height)
+        height_row.add_suffix(self.height_value)
+        height.connect("value-changed", self.on_height_changed)
+        group.add(height_row)
         return group
 
     def lock_group(self) -> Adw.PreferencesGroup:
@@ -392,6 +424,14 @@ class SetupApp(Adw.Application):
     def on_radius_changed(self, scale: Gtk.Scale) -> None:
         self.cfg["tile_radius"] = str(int(scale.get_value()))
         self.radius_value.set_label(self.cfg["tile_radius"])
+
+    def on_width_changed(self, scale: Gtk.Scale) -> None:
+        self.cfg["tile_width"] = str(int(scale.get_value()))
+        self.width_value.set_label(self.cfg["tile_width"])
+
+    def on_height_changed(self, scale: Gtk.Scale) -> None:
+        self.cfg["tile_height"] = str(int(scale.get_value()))
+        self.height_value.set_label(self.cfg["tile_height"])
 
     def on_clock_color(self, button: Gtk.ColorButton) -> None:
         self.cfg["clock_color"] = rgba_to_hex(button.get_rgba())

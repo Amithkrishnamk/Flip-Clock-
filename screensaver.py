@@ -45,6 +45,8 @@ DEFAULTS = {
     "clock_color": "#ffffff",
     "tile_color": "#1a1a1a",
     "tile_radius": "18",
+    "tile_width": "22",
+    "tile_height": "29",
     "lock_command": "swaylock",
 }
 
@@ -243,6 +245,8 @@ class FlipClock(Gtk.Window):
         self.digit_color = hex_rgb(cfg["clock_color"], (1.0, 1.0, 1.0))
         self.tile_color = hex_rgb(cfg["tile_color"], (0.102, 0.102, 0.102))
         self.radius = max(0.0, float(cfg.get("tile_radius", 18) or 0))
+        self.tile_width_ratio = min(30.0, max(10.0, float(cfg.get("tile_width", 22) or 22))) / 100.0
+        self.tile_height_ratio = min(60.0, max(10.0, float(cfg.get("tile_height", 29) or 29))) / 100.0
         self.family = font_family()
 
         initial = datetime.now()
@@ -306,8 +310,8 @@ class FlipClock(Gtk.Window):
 
         now = datetime.now()
         targets = (f"{now.hour:02d}", f"{now.minute:02d}", f"{now.second:02d}")
-        tile_w = int(w * 0.22)
-        tile_h = int(tile_w * 0.75)
+        tile_w = max(40, int(w * self.tile_width_ratio))
+        tile_h = max(30, int(h * self.tile_height_ratio))
         gap = tile_w * 0.15
         total = 3 * tile_w + 2 * gap
         start_x = (w - total) / 2
